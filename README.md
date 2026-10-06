@@ -1,23 +1,75 @@
 # HigerZero
 
-## v101 Safe Lab
-Modüler wireless audit, configuration analysis ve laboratory simulation framework.
+HigerZero is a modular Bash-based wireless security **audit and authorized lab simulation** framework.
 
-### GUI
-`./higerzero.sh` dependency-light ANSI terminal GUI açar. `--cli` yalnızca modül listesini gösterir.
+## Add a module in seconds
 
-### Yeni modül ekleme
-`modules/my_module.sh` oluşturun:
+The module system is intentionally zero-registry:
+
+1. Create `modules/my_module.sh`
+2. Add `module_main()`
+3. Restart HigerZero or press **R**
+
+Example:
 
 ```bash
+#!/usr/bin/env bash
+
 # HZ_NAME=My Module
-# HZ_DESC=Short description
-module_main(){ echo 'Hello from my module'; }
+# HZ_DESC=My custom passive lab check
+
+module_main() {
+    echo "Hello from my module"
+}
 ```
 
-Restart sonrası otomatik keşfedilir; merkezi registry düzenlemeniz gerekmez.
+That's all. The framework automatically discovers the file, gives it a menu number, and shows it in the GUI.
 
-### Ek modüller
-Risk Score, RF Environment Summary, Configuration Audit, SSID Hygiene, Cipher Audit, Lab Topology, Session Metrics, Plugin Doctor, Self-Test, Report Dashboard ve Attack Simulator.
+### Optional metadata
 
-Proje deauthentication, beacon flooding, handshake forcing, WPS PIN attacks, credential harvesting ve traffic interception gerçekleştirmez.
+You can omit both metadata lines:
+
+```bash
+module_main() {
+    echo "Hello"
+}
+```
+
+HigerZero will create the module name from the filename.
+
+### Automatic numbering
+
+Modules are sorted from `modules/*.sh` and numbered automatically at startup/reload. You never edit a module registry.
+
+```
+01  Cipher Audit
+02  My Module
+03  Risk Score Engine
+04  SSID Hygiene
+```
+
+Delete a module file and the menu renumbers itself.
+
+## Run
+
+```bash
+chmod +x higerzero.sh
+./higerzero.sh
+```
+
+CLI:
+
+```bash
+./higerzero.sh --cli
+```
+
+GUI:
+- `1-99` run a module
+- `R` reload modules
+- `S` self-test
+- `H` help
+- `Q` quit
+
+## Safety
+
+Modules are intended for passive auditing and authorized lab simulation. Do not use HigerZero to perform unauthorized attacks, collect credentials, intercept traffic, or disrupt networks.
