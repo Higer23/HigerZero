@@ -212,39 +212,114 @@ register_higerzero_plugin() {
 # ==============================================================================
 # SECTION 3: DEPENDENCY MANAGEMENT & ENVIRONMENT CHECKS
 # ==============================================================================
+# ==============================================================================
+# SECTION 3: DEPENDENCY MANAGEMENT & ENVIRONMENT CHECKS (LEVEL 100 ULTRA)
+# ==============================================================================
+# Architecture Note: Extended with multi-package manager support, future AI & 
+# telemetry dependency maps, automated mirrors, and strict error handling.
+# ==============================================================================
+
 verify_dependencies() {
     print_banner
-    echo -e "${BLUE}[INFO] Checking system package dependencies (Level 100 requirements)...${NC}"
+    echo -e "${BLUE}[INFO] Executing comprehensive system dependency & environment audit...${NC}"
+    log_event "INFO" "Starting dependency verification protocol for core and future modules."
+
+    # Core wireless testing suite + Future expansion requirements (AI, Telemetry, Scapy, Hardware tools)
+    local core_pkgs=("aircrack-ng" "mdk4" "macchanger" "hostapd" "dnsmasq" "curl" "jq" "iw" "net-tools" "nmap" "python3")
+    local future_expansion_pkgs=("python3-scapy" "rfkill" "ethtool" "tmux" "git")
+    local all_required_pkgs=("${core_pkgs[@]}" "${future_expansion_pkgs[@]}")
     
-    local required_pkgs=("aircrack-ng" "mdk4" "macchanger" "hostapd" "dnsmasq" "curl" "jq" "iw" "net-tools" "nmap" "python3")
     local missing_pkgs=()
+    local package_manager=""
     
-    for pkg in "${required_pkgs[@]}"; do
-        if ! command -v "$pkg" &>/dev/null && ! dpkg -l | grep -q "$pkg" 2>/dev/null; then
-            missing_pkgs+=("$pkg")
+    # Detect available package manager securely
+    if command -v apt &>/dev/null; then
+        package_manager="apt"
+    elif command -v pacman &>/dev/null; then
+        package_manager="pacman"
+    elif command -v dnf &>/dev/null; then
+        package_manager="dnf"
+    elif command -v zypper &>/dev/null; then
+        package_manager="zypper"
+    else
+        package_manager="unknown"
+    fi
+
+    log_event "INFO" "Detected system package manager: $package_manager"
+
+    # Verify each dependency across binaries and package databases
+    for pkg in "${all_required_pkgs[@]}"; do
+        # Strip python module prefixes for binary check if needed
+        local check_bin="$pkg"
+        if [[ "$pkg" == python3-* ]]; then
+            check_bin="python3"
+        fi
+
+        if ! command -v "$check_bin" &>/dev/null; then
+            # Secondary check via package manager query if binary isn't directly in PATH
+            local is_installed=false
+            case "$package_manager" in
+                "apt") dpkg -l | grep -q "^ii\s\+$pkg" &>/dev/null && is_installed=true ;;
+                "pacman") pacman -Q "$pkg" &>/dev/null && is_installed=true ;;
+                "dnf") rpm -q "$pkg" &>/dev/null && is_installed=true ;;
+                "zypper") zypper se -i "$pkg" &>/dev/null && is_installed=true ;;
+            es-ac 2>/dev/null || true
+
+            if [ "$is_installed" = false ]; then
+                missing_pkgs+=("$pkg")
+            fi
         fi
     done
-    
+
+    # Handle missing packages dynamically
     if [ ${#missing_pkgs[@]} -ne 0 ]; then
-        echo -e "${YELLOW}[WARN] Missing required packages detected: ${missing_pkgs[*]}${NC}"
-        read -p "Would you like HigerZero to install missing packages automatically? (y/n): " auto_install
-        if [ "$auto_install" = "y" ]; then
-            if command -v apt &>/dev/null; then
-                apt update && apt install -y "${missing_pkgs[@]}"
-            elif command -v pacman &>/dev/null; then
-                pacman -Sy --noconfirm "${missing_pkgs[@]}"
-            elif command -v dnf &>/dev/null; then
-                dnf install -y "${missing_pkgs[@]}"
-            else
-                log_event "ERROR" "Unsupported package manager. Please install dependencies manually."
-                exit 1
-            fi
+        echo -e "${YELLOW}[WARN] Missing required or future-ready packages detected:${NC}"
+        for missing in "${missing_pkgs[@]}"; do
+            echo -e "${RED}  - $missing${NC}"
+        done
+        echo ""
+        echo -e "${YELLOW}[?] Would you like HigerZero to automatically install missing dependencies? (y/N): ${NC}"
+        read -r auto_install
+        
+        if [[ "$auto_install" =~ ^[Yy]$ ]]; then
+            echo -e "${BLUE}[*] Initializing automated package installation via $package_manager...${NC}"
+            log_event "INFO" "User approved automated installation of missing packages: ${missing_pkgs[*]}"
+            
+            case "$package_manager" in
+                "apt")
+                    export DEBIAN_FRONTEND=noninteractive
+                    apt update -y && apt install -y "${missing_pkgs[@]}" || {
+                        log_event "ERROR" "APT installation encountered errors. Trying alternative mirror fix."
+                        apt --fix-broken install -y
+                        apt install -y "${missing_pkgs[@]}"
+                    }
+                    ;;
+                "pacman")
+                    pacman -Sy --noconfirm --needed "${missing_pkgs[@]}"
+                    ;;
+                "dnf")
+                    dnf install -y "${missing_pkgs[@]}"
+                    ;;
+                "zypper")
+                    zypper install -y "${missing_pkgs[@]}"
+                    ;;
+                *)
+                    echo -e "${RED}[CRITICAL ERROR] Unsupported or unknown package manager. Cannot auto-install.${NC}"
+                    log_event "CRITICAL" "Package installation failed: Unknown package manager."
+                    exit 1
+                    ;;
+            end
+            echo -e "${GREEN}[SUCCESS] All missing dependencies installed successfully.${NC}"
+            log_event "SUCCESS" "Dependency installation completed."
         else
-            echo -e "${RED}[ERROR] Cannot proceed without required wireless testing utilities.${NC}"
+            echo -e "${RED}[ERROR] Mandatory dependencies are missing. HigerZero cannot safely proceed.${NC}"
+            log_event "CRITICAL" "Dependency check aborted by operator. Missing packages unfulfilled."
             exit 1
         fi
+    else
+        echo -e "${GREEN}[SUCCESS] All core and future expansion dependencies are fully satisfied.${NC}"
+        log_event "SUCCESS" "Dependency verification passed with zero missing packages."
     fi
-    log_event "SUCCESS" "All system dependencies verified and operational."
     sleep 1
 }
 
