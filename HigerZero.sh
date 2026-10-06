@@ -126,32 +126,88 @@ trap graceful_shutdown SIGINT SIGTERM EXIT
 # ==============================================================================
 # SECTION 2: USER INTERFACE, BANNERS & DISCLAIMERS
 # ==============================================================================
+# ==============================================================================
+# SECTION 2: USER INTERFACE, BANNERS & DISCLAIMERS (HIGERZERO FUTURE-PROOF CORE)
+# ==============================================================================
+# Architecture Note: Prepared for future AI modules, multi-interface controllers,
+# remote telemetry hooks, and dynamic plugin extensions.
+# ==============================================================================
+
+# Global Extension & Future Module Registry
+declare -A HIGERZERO_PLUGINS=()
+declare -A HIGERZERO_METRICS=()
+
 print_banner() {
     clear
+    local current_user="${USER:-root}"
+    local current_host="${HOSTNAME:-higerzero-node}"
+    local current_date
+    current_date=$(date '+%Y-%m-%d %H:%M:%S')
+    local kernel_info
+    kernel_info=$(uname -r 2>/dev/null || echo "Unknown Kernel")
+    local architecture
+    architecture=$(uname -m 2>/dev/null || echo "x86_64")
+
     echo -e "${CYAN}"
-    echo -e "  ██   ██ ██ ██████  ███████ ██████  ███████ ███████ ██████   ██████ "
-    echo -e "  ██   ██ ██ ██   ██ ██      ██   ██       ██ ██      ██   ██ ██    ██"
-    echo -e "  ███████ ██ ██████  █████   ██████       ██  █████   ██████  ██    ██"
-    echo -e "  ██   ██ ██ ██   ██ ██      ██   ██     ██   ██      ██   ██ ██    ██"
-    echo -e "  ██   ██ ██ ██   ██ ███████ ██   ██    ██████ ███████ ██   ██  ██████ "
-    echo -e "                    [ HIGERZERO v100 - ULTIMATE ENTERPRISE SUITE ]"
+    echo -e "  ╔═════════════════════════════════════════════════════════════════════════╗"
+    echo -e "  ║  ██   ██ ██  ██████  ███████ ██████  ███████ ███████ ██████   ██████   ║"
+    echo -e "  ║  ██   ██ ██ ██       ██      ██   ██ ██      ██      ██   ██ ██    ██  ║"
+    echo -e "  ║  ███████ ██ ██  ████ █████   ██████  █████   █████   ██████  ██    ██  ║"
+    echo -e "  ║  ██   ██ ██ ██   ██  ██      ██   ██ ██      ██      ██   ██ ██    ██  ║"
+    echo -e "  ║  ██   ██ ██  ██████  ███████ ██   ██ ███████ ███████ ██   ██  ██████   ║"
+    echo -e "  ╚═════════════════════════════════════════════════════════════════════════╝"
     echo -e "${NC}"
-    echo -e "${WHITE}  ==================================================================${NC}"
-    echo -e "${RED}  [!] LABORATORY COMPLIANCE NOTICE (LEVEL 100):${NC}"
-    echo -e "${WHITE}  This software is designed exclusively for authorized wireless security${NC}"
-    echo -e "${WHITE}  audits and laboratory testing. Unauthorized transmission interception${NC} "
-    echo -e "${WHITE}  or unauthorized access is strictly illegal under cybercrime regulations.${NC}"
-    echo -e "${WHITE}  ==================================================================${NC}"
+    echo -e "${BLUE}  [+] FRAMEWORK   :${NC} ${WHITE}HigerZero Enterprise Security Suite (v${VERSION:-100.0-Ultimate})${NC}"
+    echo -e "${BLUE}  [+] OPERATOR    :${NC} ${WHITE}${current_user}@${current_host} [Arch: ${architecture} | Kernel: ${kernel_info}]${NC}"
+    echo -e "${BLUE}  [+] TIMESTAMP   :${NC} ${WHITE}${current_date}${NC}"
+    echo -e "${BLUE}  [+] CORE ENGINE :${NC} ${GREEN}Modular Extensible Architecture Ready (v2.0 hooks)${NC}"
+    echo -e "${WHITE}  ╠═════════════════════════════════════════════════════════════════════════╣${NC}"
+    echo -e "${RED}  ║ [!] MANDATORY LEGAL & LABORATORY COMPLIANCE NOTICE (LEVEL 100):         ║${NC}"
+    echo -e "${WHITE}  ║ This software is engineered strictly for authorized wireless auditing,   ║${NC}"
+    echo -e "${WHITE}  ║ academic research, and controlled penetration testing laboratories.      ║${NC}"
+    echo -e "${WHITE}  ║ Unauthorized interception, spoofing, or network access without explicit ║${NC}"
+    echo -e "${WHITE}  ║ written consent is a severe violation of international cyber laws.       ║${NC}"
+    echo -e "${WHITE}  ╚═════════════════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
 check_privileges() {
     if [ "$EUID" -ne 0 ]; then
-        echo -e "${RED}[CRITICAL] HigerZero must be executed with root privileges (sudo).${NC}"
-        echo -e "${YELLOW}Usage: sudo ./higerzero_suite.sh${NC}"
+        echo -e "${RED}"
+        echo -e "  ┌─────────────────────────────────────────────────────────────────────────┐"
+        echo -e "  │ [CRITICAL ERROR] HigerZero requires root (UID 0) privileges to operate! │"
+        echo -e "  │ Please re-launch the suite using: sudo ./higerzero_suite.sh             │"
+        echo -e "  └─────────────────────────────────────────────────────────────────────────┘"
+        echo -e "${NC}"
+        log_event "CRITICAL" "Privilege escalation check failed. Non-root execution attempt blocked."
         exit 1
+    else
+        echo -e "${GREEN}[INFO] HigerZero security context verified: Running as root (UID 0).${NC}"
+        log_event "SUCCESS" "Root privilege verification passed successfully."
+        sleep 0.3
     fi
 }
+
+accept_disclaimer() {
+    print_banner
+    echo -e "${YELLOW}[?] Do you confirm that you have explicit written authorization to test target networks? (y/N): ${NC}"
+    read -r confirmation
+    if [[ ! "$confirmation" =~ ^[Yy]$ ]]; then
+        echo -e "${RED}[!] Authorization declined. HigerZero session terminated safely.${NC}"
+        log_event "WARN" "Operator declined liability agreement. Session aborted."
+        exit 0
+    fi
+    log_event "SUCCESS" "Operator accepted HigerZero laboratory liability and compliance terms."
+}
+
+# --- Future Extensibility Hook: Dynamic Plugin / Module Loader Template ---
+register_higerzero_plugin() {
+    local plugin_name="$1"
+    local plugin_status="$2"
+    HIGERZERO_PLUGINS["$plugin_name"]="$plugin_status"
+    log_event "INFO" "Registered external extension hook -> Module: $plugin_name [Status: $plugin_status]"
+}
+
 
 # ==============================================================================
 # SECTION 3: DEPENDENCY MANAGEMENT & ENVIRONMENT CHECKS
