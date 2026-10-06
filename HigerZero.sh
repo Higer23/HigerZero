@@ -1,33 +1,38 @@
 #!/bin/bash
 # ==============================================================================
-# HIGERZERO v1.0 - ADVANCED ENTERPRISE WIRELESS ASSESSMENT SUITE (LEVEL 100)
-# Laboratory Testing and Network Security Research Framework
-# Target Environments: KDE Linux / Parrot OS / Kali Linux / Arch Linux
+# HIGERZERO v100.0 - ULTIMATE ENTERPRISE WIRELESS ASSESSMENT & SECURITY SUITE
+# Comprehensive Laboratory Testing, Threat Simulation & Research Framework
+# Target Environments: KDE Linux / Parrot OS / Kali Linux / Arch Linux / Debian
 # ==============================================================================
-# Description: Fully Modularized Automated Deauthentication, Beacon Flooding,
-# Evil Twin AP Spoofer with Captive Portal, Handshake Capture, MAC Cloning,
-# WPA3/PMF Audit, Host Discovery, and Comprehensive JSON/HTML Lab Reporting.
-# Author: CyberSec Academy & Research Unit
-# License: MIT (Educational & Authorized Lab Use Only)
+# Description: Fully Modularized, AI-Ready, Enterprise-Grade Automated Suite 
+# Featuring Advanced Deauthentication, Beacon Flooding, Multi-Vector Evil Twin 
+# Spoofer with Captive Portal, Automated WPA/WPA2 Handshake Capture, PMKID 
+# Extraction, MAC Spoofing, WPA3/PMF Auditing, Intelligent Host Discovery, 
+# Real-Time Telemetry Streaming, and Detailed JSON/HTML/PDF-Ready Lab Reporting.
+# Author: CyberSec Academy & Advanced Research Unit
+# License: MIT (Strictly Authorized Educational & Controlled Laboratory Use Only)
 # ==============================================================================
 
-# --- Strict Mode & Safety Guardrails ---
+# --- Strict Mode, Error Interception & Safety Guardrails ---
 set -uo pipefail
 IFS=$'\n\t'
 
-# --- Configuration & Constants ---
-readonly VERSION="100.0-HigerZero-Ultimate"
+# --- Configuration, Global Constants & Directories ---
+readonly VERSION="100.0-HigerZero-Ultimate-Enterprise"
 readonly SCRIPT_NAME="$(basename "$0")"
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly WORK_DIR="${SCRIPT_DIR}/higerzero_workspace"
 readonly LOG_DIR="${WORK_DIR}/logs"
 readonly CAPTURE_DIR="${WORK_DIR}/captures"
 readonly WEB_DIR="${WORK_DIR}/www"
+readonly CONFIG_DIR="${WORK_DIR}/config"
+readonly PLUGIN_DIR="${WORK_DIR}/plugins"
 readonly REPORT_JSON="${LOG_DIR}/lab_audit_report.json"
 readonly REPORT_HTML="${LOG_DIR}/lab_audit_report.html"
 readonly SYSTEM_LOG="${LOG_DIR}/higerzero_operation.log"
+readonly TELEMETRY_PIPE="${WORK_DIR}/telemetry.pipe"
 
-# --- ANSI Color Palettes (Rich UI) ---
+# --- Advanced ANSI Color Palettes & UI Formatting ---
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
 readonly YELLOW='\033[1;33m'
@@ -36,9 +41,11 @@ readonly PURPLE='\033[0;35m'
 readonly CYAN='\033[0;36m'
 readonly WHITE='\033[1;37m'
 readonly GRAY='\033[1;30m'
-readonly NC='\033[0m' # No Color
+readonly BOLD='\033[1m'
+readonly UNDERLINE='\033[4m'
+readonly NC='\033[0m' # Reset Color
 
-# --- Global Operational State Variables ---
+# --- Global Operational State & Extensibility Variables ---
 INTERFACE=""
 MON_INTERFACE=""
 ORIGINAL_MAC=""
@@ -49,14 +56,44 @@ ACTIVE_ATTACK_PID=""
 DNSMASQ_PID=""
 HOSTAPD_PID=""
 PYTHON_PID=""
+API_TELEMETRY_PID=""
+
+# Advanced Multi-Module Extensibility & State Registries
+declare -A HIGERZERO_ACTIVE_PIDS=()
+declare -A HIGERZERO_SESSION_METRICS=()
+declare -A HIGERZERO_PLUGINS=()
+declare -A HIGERZERO_HARDWARE_PROFILE=()
+declare -A HIGERZERO_TARGET_PROFILE=()
 
 # ==============================================================================
-# SECTION 1: SYSTEM INITIALIZATION, DIRECTORY & LOGGING MANAGEMENT
+# SECTION 1: SYSTEM INITIALIZATION, DIRECTORY STRUCTURE & LOGGING MANAGEMENT
 # ==============================================================================
 init_environment() {
-    mkdir -p "$LOG_DIR" "$CAPTURE_DIR" "$WEB_DIR"
-    > "$SYSTEM_LOG"
-    log_event "INFO" "HigerZero Suite v$VERSION initialized successfully."
+    # Establish robust directory hierarchy with strict error trapping
+    for dir in "$LOG_DIR" "$CAPTURE_DIR" "$WEB_DIR" "$CONFIG_DIR" "$PLUGIN_DIR"; do
+        mkdir -p "$dir" 2>/dev/null || {
+            echo -e "${RED}[CRITICAL ERROR] Failed to initialize critical workspace directory: $dir${NC}"
+            exit 1
+        }
+    done
+    
+    # Initialize high-granularity system operation log with enterprise session header
+    {
+        echo "========================================================================="
+        echo " HIGERZERO SUITE AUDIT LOG - SESSION INITIALIZED: $(date '+%Y-%m-%d %H:%M:%S')"
+        echo " FRAMEWORK EDITION: $VERSION"
+        echo " SYSTEM HOSTNAME  : ${HOSTNAME:-higerzero-node}"
+        echo " EXECUTION UID    : ${EUID:-unknown}"
+        echo "========================================================================="
+    } > "$SYSTEM_LOG" 2>/dev/null || true
+    
+    # Create named pipe for real-time telemetry streaming if supported
+    if [ ! -p "$TELEMETRY_PIPE" ]; then
+        mkfifo "$TELEMETRY_PIPE" 2>/dev/null || true
+    fi
+
+    log_event "INFO" "HigerZero Suite v$VERSION core environment initialized successfully."
+    log_event "INFO" "Enterprise workspace architecture verified at: $WORK_DIR"
 }
 
 log_event() {
@@ -66,7 +103,13 @@ log_event() {
     timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local entry="[$timestamp] [$level] $message"
     
-    echo "$entry" >> "$SYSTEM_LOG"
+    # Safe write to primary operation log file
+    echo "$entry" >> "$SYSTEM_LOG" 2>/dev/null || true
+    
+    # Stream to telemetry pipe if active
+    if [ -p "$TELEMETRY_PIPE" ]; then
+        echo "$entry" > "$TELEMETRY_PIPE" 2>/dev/null &
+    fi
     
     case "$level" in
         "CRITICAL"|"ERROR")
@@ -84,44 +127,72 @@ log_event() {
     esac
 }
 
-# Graceful Cleanup Handler
+# Advanced Graceful Cleanup & Telemetry Preservation Handler
 graceful_shutdown() {
-    echo -e "\n${YELLOW}[!] Shutting down HigerZero Suite gracefully...${NC}"
-    log_event "WARN" "Graceful shutdown signal received."
+    echo -e "\n${YELLOW}[!] Shutting down HigerZero Suite gracefully and cleaning up operational resources...${NC}"
+    log_event "WARN" "Graceful shutdown signal intercepted. Terminating all active threads and services."
     
-    # Terminate background services if running
-    [ -n "${DNSMASQ_PID:-}" ] && kill -0 "$DNSMASQ_PID" 2>/dev/null && kill "$DNSMASQ_PID" 2>/dev/null || true
-    [ -n "${HOSTAPD_PID:-}" ] && kill -0 "$HOSTAPD_PID" 2>/dev/null && kill "$HOSTAPD_PID" 2>/dev/null || true
-    [ -n "${PYTHON_PID:-}" ] && kill -0 "$PYTHON_PID" 2>/dev/null && kill "$PYTHON_PID" 2>/dev/null || true
-    [ -n "${ACTIVE_ATTACK_PID:-}" ] && kill -0 "$ACTIVE_ATTACK_PID" 2>/dev/null && kill "$ACTIVE_ATTACK_PID" 2>/dev/null || true
+    # Terminate standard background operational processes
+    for pid_var in DNSMASQ_PID HOSTAPD_PID PYTHON_PID ACTIVE_ATTACK_PID API_TELEMETRY_PID; do
+        local current_pid="${!pid_var:-}"
+        if [ -n "$current_pid" ]; then
+            if kill -0 "$current_pid" 2>/dev/null; then
+                kill "$current_pid" 2>/dev/null || true
+                wait "$current_pid" 2>/dev/null || true
+                log_event "INFO" "Terminated background process -> $pid_var (PID: $current_pid)"
+            fi
+        fi
+    done
     
-    # Flush iptables NAT rules
+    # Terminate registered dynamic PIDs from multi-threaded extension modules
+    for module_name in "${!HIGERZERO_ACTIVE_PIDS[@]}"; do
+        local mod_pid="${HIGERZERO_ACTIVE_PIDS[$module_name]}"
+        if [ -n "$mod_pid" ] && kill -0 "$mod_pid" 2>/dev/null; then
+            kill "$mod_pid" 2>/dev/null || true
+            log_event "INFO" "Terminated dynamic module process -> $module_name (PID: $mod_pid)"
+        fi
+    done
+    
+    # Flush iptables, NAT, and advanced firewall routing rules securely
+    echo -e "${YELLOW}[*] Flushing network firewall rules and restoring default routing tables...${NC}"
     iptables -t nat -F 2>/dev/null || true
+    iptables -t nat -X 2>/dev/null || true
     iptables -F 2>/dev/null || true
+    iptables -X 2>/dev/null || true
     
+    # Clean up temporary named pipes
+    rm -f "$TELEMETRY_PIPE" 2>/dev/null || true
+
     # Restore interface mode if monitor mode was active
     if [ -n "${MON_INTERFACE:-}" ]; then
-        echo -e "${YELLOW}[*] Stopping monitor mode on $MON_INTERFACE...${NC}"
+        echo -e "${YELLOW}[*] Stopping monitor mode and tearing down virtual interface $MON_INTERFACE...${NC}"
         airmon-ng stop "$MON_INTERFACE" &>/dev/null || true
+        ip link set "$MON_INTERFACE" down 2>/dev/null || true
+        ip link set "$MON_INTERFACE" name "${INTERFACE:-wlan0}" 2>/dev/null || true
     fi
     
-    # Restore Original MAC if saved
+    # Restore Original hardware MAC address if safely recorded
     if [ -n "${ORIGINAL_MAC:-}" ] && [ -n "${INTERFACE:-}" ]; then
-        echo -e "${YELLOW}[*] Restoring original hardware MAC address for $INTERFACE...${NC}"
+        echo -e "${YELLOW}[*] Restoring original physical hardware MAC address for $INTERFACE -> $ORIGINAL_MAC${NC}"
         ip link set "$INTERFACE" down 2>/dev/null || true
-        macchanger -p "$INTERFACE" &>/dev/null || true
+        macchanger -p "$INTERFACE" &>/dev/null || {
+            ip link set "$INTERFACE" address "$ORIGINAL_MAC" 2>/dev/null || true
+        }
         ip link set "$INTERFACE" up 2>/dev/null || true
     fi
     
-    # Restart NetworkManager
+    # Restart core networking service to regain local connectivity
     echo -e "${GREEN}[*] Restarting NetworkManager service...${NC}"
     systemctl start NetworkManager 2>/dev/null || true
     
+    log_event "SUCCESS" "HigerZero cleanup finalized successfully. Secure session closed."
     echo -e "${GREEN}[+] HigerZero cleanup completed. Lab session closed safely.${NC}"
     exit 0
 }
 
+# Trap registrations for secure exit handling across interrupts
 trap graceful_shutdown SIGINT SIGTERM EXIT
+
 
 # ==============================================================================
 # SECTION 2: USER INTERFACE, BANNERS & DISCLAIMERS
