@@ -1,15 +1,11 @@
-# HigerZero Plugins
+# Plugin API
 
-Plugins are shell modules sourced by an explicit operator action.
-
-Rules:
-1. Never transmit deauthentication, beacon-flood, handshake-forcing, WPS attack, or credential-harvesting traffic.
-2. Prefer read-only parsing and deterministic simulations.
-3. Do not alter global firewall/network-manager state.
-4. Return non-zero on validation errors.
-
-Example entry point:
+Tek dosya ile modül ekleyin:
 
 ```bash
-plugin_name(){ echo "hello"; }
+# HZ_NAME=My Module
+# HZ_DESC=Short description
+module_main(){ echo 'Hello'; }
 ```
+
+Dosyayı `modules/my_module.sh` olarak kaydedin. Yeniden başlatınca otomatik görünür. Merkezi registry yoktur. Aktif saldırı, credential harvesting ve trafik kesme modülleri kabul edilmez.

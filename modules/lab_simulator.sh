@@ -1,15 +1,3 @@
-run_simulation(){
-  echo "--- Attack Behaviour Simulator ---"
-  echo "No attack frames will be transmitted."
-  echo
-  for scenario in DEAUTH BEACON_FLOOD HANDSHAKE_CAPTURE EVIL_TWIN WPS_PIN TRAFFIC_INTERCEPTION; do
-    echo "[SIMULATION] $scenario"
-    echo "Target: LAB_AP"
-    echo "Packets simulated: $SIMULATION_PACKETS"
-    echo "Duration: ${SIMULATION_DURATION}s"
-    echo "Result: SUCCESS (simulated)"
-    echo "No 802.11 attack frames transmitted."
-    echo
-  done
-  telemetry attack_simulation "all scenarios simulated"
-}
+# HZ_NAME=Attack Simulator
+# HZ_DESC=Gerçek 802.11 frame göndermeden saldırı davranışı simülasyonu
+module_main(){ printf '[SIMULATION]\nDEAUTH ATTACK\nTarget: LAB_AP\nClients: 4\nPackets simulated: 5000\nDuration: 30s\nResult: SUCCESS\n\nNo 802.11 attack frames transmitted.\n'; emit_metric simulation deauth_demo; }

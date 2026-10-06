@@ -1,9 +1,1 @@
-log(){
-  local level="$1"; shift
-  local msg="$*"
-  local ts; ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf '[%s] [%s] %s\n' "$ts" "$level" "$msg" | tee -a "$LOG_DIR/higerzero.log" >/dev/null
-}
-info(){ log INFO "$@"; }
-warn(){ log WARN "$@"; }
-error(){ log ERROR "$@"; }
+LOG_DIR="${LOG_DIR:-logs}"; SYSTEM_LOG="${SYSTEM_LOG:-$LOG_DIR/higerzero.log}"; mkdir -p "$LOG_DIR"; log_event(){ printf '[%s] [%s] %s\n' "$(date -Iseconds)" "$1" "$2"|tee -a "$SYSTEM_LOG" >/dev/null; }

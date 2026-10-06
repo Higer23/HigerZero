@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-grep -q "do not flush global firewall" "$ROOT/core/cleanup.sh"
-echo "test_cleanup: PASS"
+grep -q 'trap - EXIT INT TERM' core/cleanup.sh
+grep -q 'Safety lock' core/safety.sh
+echo 'cleanup/safety: PASS'
