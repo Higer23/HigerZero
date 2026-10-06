@@ -334,7 +334,7 @@ verify_dependencies() {
                 "pacman") pacman -Q "$pkg" &>/dev/null && is_installed=true ;;
                 "dnf") rpm -q "$pkg" &>/dev/null && is_installed=true ;;
                 "zypper") zypper se -i "$pkg" &>/dev/null && is_installed=true ;;
-            es-ac 2>/dev/null || true
+            esac 2>/dev/null || true
 
             if [ "$is_installed" = false ]; then
                 missing_pkgs+=("$pkg")
