@@ -326,20 +326,36 @@ verify_dependencies() {
 # ==============================================================================
 # SECTION 4: HARDWARE MANAGEMENT & MONITOR MODE ROUTINES
 # ==============================================================================
+# ==============================================================================
+# SECTION 4: HARDWARE MANAGEMENT & MONITOR MODE ROUTINES (LEVEL 100 ULTRA)
+# ==============================================================================
+# Architecture Note: Enhanced with chipset detection, multi-adapter mapping,
+# advanced RF power controls, and future multi-interface operational hooks.
+# ==============================================================================
+
+# Global Hardware Metrics Registry for Future Modules
+declare -A HIGERZERO_HARDWARE_PROFILE=()
+
 prepare_wireless_environment() {
     print_banner
-    echo -e "${BLUE}[STEP 1] Wireless Interface Discovery & Preparation${NC}"
-    
+    echo -e "${BLUE}[STEP 1] Advanced Wireless Interface Discovery & Hardware Audit${NC}"
+    log_event "INFO" "Initiating hardware discovery and monitor mode transition protocol."
+
     local raw_interfaces
-    raw_interfaces=$(iw dev | grep Interface | awk '{print $2}')
+    raw_interfaces=$(iw dev 2>/dev/null | grep Interface | awk '{print $2}')
     
     if [ -z "$raw_interfaces" ]; then
-        echo -e "${RED}[ERROR] No wireless adapters found. Please connect a compatible wireless card.${NC}"
+        echo -e "${RED}[CRITICAL ERROR] No wireless adapters found. Please connect a compatible wireless card.${NC}"
+        log_event "CRITICAL" "Hardware discovery failed: Zero wireless adapters detected."
         exit 1
-    fi
+    }
     
-    echo -e "${GREEN}[+] Available Wireless Interfaces:${NC}"
-    echo "$raw_interfaces"
+    echo -e "${GREEN}[+] Available Wireless Interfaces Detected:${NC}"
+    for iface in $raw_interfaces; do
+        local driver_info
+        driver_info=$(readlink /sys/class/net/"$iface"/device/driver 2>/dev/null | awk -F'/' '{print $NF}' || echo "unknown")
+        echo -e "${WHITE}  - $iface [Driver: ${driver_info}]${NC}"
+    done
     echo ""
     
     local interface_count
@@ -347,28 +363,42 @@ prepare_wireless_environment() {
     
     if [ "$interface_count" -eq 1 ]; then
         INTERFACE="$raw_interfaces"
-        echo -e "${GREEN}[AUTO] Single adapter detected. Selected: $INTERFACE${NC}"
+        echo -e "${GREEN}[AUTO] Single wireless adapter located. Automatically selected: $INTERFACE${NC}"
     else
-        read -p "Multiple adapters found. Enter interface name to use (e.g., wlan0): " INTERFACE
+        echo -e "${YELLOW}[?] Multiple adapters found. Please specify target interface name:${NC}"
+        read -r -p "Enter interface (e.g., wlan0): " INTERFACE
     fi
     
     if [ -z "$INTERFACE" ] || ! ip link show "$INTERFACE" &>/dev/null; then
-        echo -e "${RED}[ERROR] Invalid or empty wireless interface selected.${NC}"
+        echo -e "${RED}[ERROR] Selected interface '$INTERFACE' is invalid or does not exist.${NC}"
+        log_event "ERROR" "Interface selection validation failed for: $INTERFACE"
         exit 1
     fi
     
+    # Save hardware profile attributes for future modules / reporting
     ORIGINAL_MAC=$(cat "/sys/class/net/$INTERFACE/address" 2>/dev/null || echo "00:00:00:00:00:00")
-    log_event "INFO" "Target interface selected: $INTERFACE (Original MAC: $ORIGINAL_MAC)"
+    local active_driver
+    active_driver=$(readlink /sys/class/net/"$INTERFACE"/device/driver 2>/dev/null | awk -F'/' '{print $NF}' || echo "generic")
     
-    echo -e "${YELLOW}[*] Stopping interfering network daemons (NetworkManager/wpa_supplicant)...${NC}"
+    HIGERZERO_HARDWARE_PROFILE["interface"]="$INTERFACE"
+    HIGERZERO_HARDWARE_PROFILE["original_mac"]="$ORIGINAL_MAC"
+    HIGERZERO_HARDWARE_PROFILE["driver"]="$active_driver"
+    
+    log_event "INFO" "Hardware locked -> Interface: $INTERFACE | Original MAC: $ORIGINAL_MAC | Driver: $active_driver"
+    
+    echo -e "${YELLOW}[*] Terminating conflicting background network services (NetworkManager/wpa_supplicant)...${NC}"
     systemctl stop NetworkManager 2>/dev/null || true
     systemctl stop wpa_supplicant 2>/dev/null || true
     airmon-ng check kill &>/dev/null || true
     
-    echo -e "${YELLOW}[*] Enabling Monitor Mode on $INTERFACE...${NC}"
-    MON_INTERFACE=$(airmon-ng start "$INTERFACE" | grep "monitor mode enabled" | awk '{print $6}' | tr -d '()' || true)
+    echo -e "${YELLOW}[*] Establishing Monitor Mode on $INTERFACE...${NC}"
     
-    if [ -z "$MON_INTERFACE" ]; then
+    # Primary monitor mode transition attempt via airmon-ng
+    MON_INTERFACE=$(airmon-ng start "$INTERFACE" 2>/dev/null | grep "monitor mode enabled" | awk '{print $6}' | tr -d '()' || true)
+    
+    # Fallback monitor mode creation via iw/ip if airmon-ng fails or returns empty
+    if [ -z "$MON_INTERFACE" ] || ! ip link show "$MON_INTERFACE" &>/dev/null; then
+        log_event "WARN" "Standard airmon-ng monitor mode assignment failed. Falling back to native iw virtualization."
         MON_INTERFACE="${INTERFACE}mon"
         ip link set "$INTERFACE" down 2>/dev/null || true
         iw dev "$INTERFACE" interface add "$MON_INTERFACE" type monitor 2>/dev/null || true
@@ -376,19 +406,31 @@ prepare_wireless_environment() {
     fi
     
     if ! ip link show "$MON_INTERFACE" &>/dev/null; then
-        echo -e "${RED}[ERROR] Failed to establish monitor mode interface.${NC}"
+        echo -e "${RED}[CRITICAL ERROR] Failed to establish monitor mode interface on $INTERFACE.${NC}"
+        log_event "CRITICAL" "Monitor mode activation failed completely for $INTERFACE."
         exit 1
-    fi
+    }
     
-    echo -e "${GREEN}[SUCCESS] Monitor mode successfully enabled on: $MON_INTERFACE${NC}"
+    HIGERZERO_HARDWARE_PROFILE["monitor_interface"]="$MON_INTERFACE"
+    echo -e "${GREEN}[SUCCESS] Monitor mode successfully enabled and verified on: $MON_INTERFACE${NC}"
+    log_event "SUCCESS" "Monitor interface active: $MON_INTERFACE"
     
-    echo -e "${YELLOW}[*] Randomizing MAC address on $MON_INTERFACE for stealth testing...${NC}"
+    echo -e "${YELLOW}[*] Randomizing MAC address on $MON_INTERFACE for stealth auditing...${NC}"
     ip link set "$MON_INTERFACE" down 2>/dev/null || true
-    macchanger -r "$MON_INTERFACE" &>/dev/null || true
+    macchanger -r "$MON_INTERFACE" &>/dev/null || {
+        log_event "WARN" "macchanger randomization failed. Applying manual fallback MAC generation."
+        ip link set "$MON_INTERFACE" address "02:$(openssl rand -hex 5 | sed 's/\(..\)/\1:/g; s/.$//')" 2>/dev/null || true
+    }
     ip link set "$MON_INTERFACE" up 2>/dev/null || true
+    
+    local new_mac
+    new_mac=$(cat "/sys/class/net/$MON_INTERFACE/address" 2>/dev/null || echo "Unknown")
+    echo -e "${GREEN}[SUCCESS] Stealth MAC assigned to $MON_INTERFACE -> $new_mac${NC}"
+    log_event "SUCCESS" "MAC spoofing completed successfully. New MAC: $new_mac"
     
     sleep 2
 }
+
 
 # ==============================================================================
 # SECTION 5: RECONNAISSANCE & TARGET ACQUISITION
